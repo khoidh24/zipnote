@@ -24,7 +24,7 @@ export const TaskCard = memo(function TaskCard({
   return (
     <Card
       onClick={() => onEdit(task)}
-      className="p-4 cursor-pointer transition-all hover:shadow-lg hover:scale-105 border-2"
+      className="p-4 cursor-pointer transition-all hover:shadow-lg border-2"
       style={{
         borderColor: status?.color || "#e5e7eb",
       }}
@@ -33,11 +33,12 @@ export const TaskCard = memo(function TaskCard({
         <h3 className="font-semibold line-clamp-2 flex-1">{task.title}</h3>
         {status && (
           <Badge
-            className="shrink-0"
+            className="shrink-0 flex items-center gap-1"
             style={{
               backgroundColor: status.color,
             }}
           >
+            <div className="w-2 h-2 rounded-full bg-white opacity-70" />
             {status.title}
           </Badge>
         )}

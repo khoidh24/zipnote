@@ -32,7 +32,7 @@ import type { Note } from "@/types/note";
 import type { Task } from "@/types/task";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { MoreVertical, Trash2 } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
 import { NoteSection } from "./note-section";
@@ -67,12 +67,20 @@ export function CreateTaskDialog({
   const [taskId, setTaskId] = useState<string | null>(null);
   const prevOpenRef = useRef(open);
 
+  // Get default status - prefer "todo" or first available
+  const getDefaultStatusId = useCallback(() => {
+    const todoStatus = availableStatuses.find(
+      (s) => s.title.toLowerCase() === "todo"
+    );
+    return todoStatus?.id || availableStatuses[0]?.id || "";
+  }, [availableStatuses]);
+
   const form = useForm<TaskFormValues>({
     resolver: zodResolver(taskFormSchema),
     defaultValues: {
       title: "",
       description: "",
-      statusId: availableStatuses[0]?.id || "",
+      statusId: getDefaultStatusId(),
       linkedNoteIds: [],
     },
   });
@@ -94,14 +102,14 @@ export function CreateTaskDialog({
           form.reset({
             title: "",
             description: "",
-            statusId: availableStatuses[0]?.id || "",
+            statusId: getDefaultStatusId(),
             linkedNoteIds: [],
           });
         }
       })();
     }
     prevOpenRef.current = open;
-  }, [open, editTask, form, availableStatuses]);
+  }, [open, editTask, form, availableStatuses, getDefaultStatusId]);
 
   // Save Logic
   const saveTask = async (values: TaskFormValues) => {
@@ -174,9 +182,12 @@ export function CreateTaskDialog({
   return (
     <>
       <Dialog open={open} onOpenChange={handleOpenChange}>
-        <DialogContent className="sm:max-w-137.5 max-h-[90vh] overflow-y-auto [&>button]:hidden">
+        <DialogContent className="sm:max-w-137.5 max-h-[90vh] flex flex-col [&>button]:hidden">
           <Form {...form}>
-            <form onSubmit={(e) => e.preventDefault()}>
+            <form
+              onSubmit={(e) => e.preventDefault()}
+              className="overflow-y-auto"
+            >
               <div className="flex items-start justify-between mb-4">
                 <DialogTitle className="text-xl font-bold">
                   {taskId ? "" : "Create New Task"}
@@ -227,21 +238,27 @@ export function CreateTaskDialog({
                   control={form.control}
                   name="statusId"
                   render={({ field }) => (
-                    <FormItem>
+                    <FormItem className="w-full">
                       <FormLabel>Status</FormLabel>
                       <Select
                         value={field.value}
                         onValueChange={field.onChange}
                       >
                         <FormControl>
-                          <SelectTrigger>
+                          <SelectTrigger className="w-full">
                             <SelectValue placeholder="Select status" />
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
                           {availableStatuses.map((status) => (
                             <SelectItem key={status.id} value={status.id}>
-                              {status.title}
+                              <div className="flex items-center gap-2">
+                                <div
+                                  className="w-3 h-3 rounded-full"
+                                  style={{ backgroundColor: status.color }}
+                                />
+                                {status.title}
+                              </div>
                             </SelectItem>
                           ))}
                         </SelectContent>

@@ -22,10 +22,13 @@ const getStatusesFromBoard = async (): Promise<Status[]> => {
     if (boardStr) {
       try {
         const board = JSON.parse(boardStr);
+        console.log("Loaded board data:", board);
         return board.statuses || [];
       } catch (e) {
         console.error("Failed to parse board data:", e);
       }
+    } else {
+      console.warn("No board-data found in localStorage");
     }
   }
   return [];

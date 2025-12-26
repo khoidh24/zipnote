@@ -1,88 +1,88 @@
-import { openDB } from "idb";
-import { Task } from "@/types/task";
-
-const DB_NAME = "zipnote-db";
-const STORE_NAME = "tasks";
-
-export const initTasksDB = async () => {
-  const db = await openDB(DB_NAME, 1, {
-    upgrade(db) {
-      if (!db.objectStoreNames.contains(STORE_NAME)) {
-        db.createObjectStore(STORE_NAME, { keyPath: "id" });
-      }
-    },
-  });
-  return db;
-};
+import {
+  addChecklist,
+  getAllTasks as dbGetAllTasks,
+  updateTask as dbUpdateTask,
+  deleteTask as dbDeleteTask,
+  getTasksByStatus,
+} from "./db";
+import type { Task as TaskType } from "@/types/task";
+import type { Task as BoardTask } from "@/types/board";
 
 export const addTask = async (
-  task: Omit<Task, "id" | "createdAt" | "updatedAt">
+  task: Omit<TaskType, "id" | "createdAt" | "updatedAt">
 ) => {
-  const db = await initTasksDB();
-  const id = Date.now().toString();
-  const newTask: Task = {
-    ...task,
-    id,
-    createdAt: new Date(),
-    updatedAt: new Date(),
+  // Map from /types/task.ts to /types/board.ts format
+  const boardTask: Omit<BoardTask, "id" | "createdAt" | "updatedAt"> = {
+    title: task.title,
+    description: task.description,
+    statusId: task.statusId,
+    linkedNoteIds: task.linkedNoteIds,
+    order: Date.now(),
+    logWork: [],
   };
-  await db.add(STORE_NAME, newTask);
-  return newTask;
+  return addChecklist(boardTask);
 };
 
-export const getAllTasks = async (): Promise<Task[]> => {
-  const db = await initTasksDB();
-  const tasks = await db.getAll(STORE_NAME);
-  return tasks.map((task) => ({
-    ...task,
-    createdAt: new Date(task.createdAt),
-    updatedAt: new Date(task.updatedAt),
+export const getAllTasks = async (): Promise<TaskType[]> => {
+  const boardTasks = await dbGetAllTasks();
+  // Map from /types/board.ts to /types/task.ts format
+  return boardTasks.map((task) => ({
+    id: task.id,
+    title: task.title,
+    description: task.description,
+    statusId: task.statusId,
+    linkedNoteIds: task.linkedNoteIds,
+    createdAt: task.createdAt,
+    updatedAt: task.updatedAt,
   }));
 };
 
-export const getTaskById = async (id: string): Promise<Task | undefined> => {
-  const db = await initTasksDB();
-  const task = await db.get(STORE_NAME, id);
-  if (task) {
-    return {
-      ...task,
-      createdAt: new Date(task.createdAt),
-      updatedAt: new Date(task.updatedAt),
-    };
-  }
-  return undefined;
+export const getTaskById = async (
+  id: string
+): Promise<TaskType | undefined> => {
+  const tasks = await getAllTasks();
+  return tasks.find((task) => task.id === id);
 };
 
 export const updateTask = async (
   id: string,
-  updates: Partial<Omit<Task, "id" | "createdAt">>
+  updates: Partial<Omit<TaskType, "id" | "createdAt">>
 ) => {
-  const db = await initTasksDB();
-  const task = await db.get(STORE_NAME, id);
-  if (task) {
-    const updatedTask: Task = {
-      ...task,
-      ...updates,
-      id,
-      createdAt: task.createdAt,
-      updatedAt: new Date(),
-    };
-    await db.put(STORE_NAME, updatedTask);
-    return updatedTask;
-  }
+  // Map only the fields that exist in both types
+  const boardUpdates: Partial<BoardTask> = {};
+  if (updates.title !== undefined) boardUpdates.title = updates.title;
+  if (updates.description !== undefined)
+    boardUpdates.description = updates.description;
+  if (updates.statusId !== undefined) boardUpdates.statusId = updates.statusId;
+  if (updates.linkedNoteIds !== undefined)
+    boardUpdates.linkedNoteIds = updates.linkedNoteIds;
+
+  await dbUpdateTask(id, boardUpdates);
 };
 
 export const deleteTask = async (id: string) => {
-  const db = await initTasksDB();
-  await db.delete(STORE_NAME, id);
+  return dbDeleteTask(id);
 };
 
-export const getTasksByNoteId = async (noteId: string): Promise<Task[]> => {
+export const getTasksByNoteId = async (noteId: string): Promise<TaskType[]> => {
   const allTasks = await getAllTasks();
-  return allTasks.filter((task) => task.linkedNoteIds.includes(noteId));
+  return allTasks.filter(
+    (task) => task.linkedNoteIds?.includes(noteId) || false
+  );
 };
 
-export const getTasksByStatusId = async (statusId: string): Promise<Task[]> => {
-  const allTasks = await getAllTasks();
-  return allTasks.filter((task) => task.statusId === statusId);
+export const getTasksByStatusId = async (
+  statusId: string
+): Promise<TaskType[]> => {
+  const boardTasks = await getTasksByStatus(statusId);
+  // Map from /types/board.ts to /types/task.ts format
+  return boardTasks.map((task) => ({
+    id: task.id,
+    title: task.title,
+    description: task.description,
+    statusId: task.statusId,
+    linkedNoteIds: task.linkedNoteIds,
+    createdAt: task.createdAt,
+    updatedAt: task.updatedAt,
+  }));
 };
